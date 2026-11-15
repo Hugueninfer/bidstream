@@ -1,0 +1,41 @@
+{
+  "name": "@bidstream/edge-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BidStream edge gateway: public REST + SSE API in front of the gRPC services",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --enable-source-maps --import ./dist/tracing.js dist/main.js",
+    "dev": "tsx watch --import ./src/tracing.ts src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "11.4.3",
+    "@fastify/swagger": "9.9.4",
+    "@grpc/grpc-js": "1.14.7",
+    "@grpc/proto-loader": "0.8.1",
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.301.2",
+    "@opentelemetry/instrumentation": "0.301.2",
+    "@opentelemetry/instrumentation-grpc": "0.301.2",
+    "@opentelemetry/instrumentation-http": "0.301.2",
+    "@opentelemetry/sdk-node": "0.301.2",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "fastify": "5.12.8",
+    "kafkajs": "2.2.4",
+    "kafkajs-snappy": "1.1.0",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

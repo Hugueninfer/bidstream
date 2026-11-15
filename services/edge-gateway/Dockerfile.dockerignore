@@ -1,0 +1,7 @@
+# BuildKit reads <Dockerfile>.dockerignore; the context is the repo root.
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+.git
+web
