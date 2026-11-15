@@ -7,6 +7,9 @@ image:
 # Shared by every service.
 kafkaBrokers: redpanda:9092
 otelEndpoint: http://jaeger-collector.istio-system:4318
+# Share of requests traced. Tracing every request under load buries the
+# in-memory Jaeger (CPU and swap on the host) and skews the measurements.
+traceSampleRatio: "0.1"
 databaseHost: postgres:5432
 databaseSecret: postgres-credentials
 

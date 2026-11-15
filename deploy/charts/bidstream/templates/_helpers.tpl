@@ -20,6 +20,12 @@
   value: {{ .name | quote }}
 - name: OTEL_RESOURCE_ATTRIBUTES
   value: "service.version={{ .version }}"
+# The edge decides whether a request is traced and every hop follows it, so
+# sampled traces stay complete.
+- name: OTEL_TRACES_SAMPLER
+  value: parentbased_traceidratio
+- name: OTEL_TRACES_SAMPLER_ARG
+  value: {{ .root.Values.traceSampleRatio | quote }}
 {{- end }}
 - name: LOG_LEVEL
   value: info
