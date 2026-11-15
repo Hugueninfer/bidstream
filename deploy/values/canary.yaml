@@ -1,0 +1,5 @@
+# Adds the v2 track of pricing-service next to v1 (see deploy/istio/canary.yaml).
+services:
+  pricing-service:
+    versions:
+      v2: { replicas: 1, env: { MODEL_VERSION: v2 } }

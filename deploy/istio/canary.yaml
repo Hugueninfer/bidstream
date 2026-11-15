@@ -1,0 +1,14 @@
+# Canary release of pricing-service model v2: 90% of calls stay on v1, 10% go
+# to v2. Shift traffic by editing the weights (or `make k8s-canary WEIGHT=50`).
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: pricing-service
+  namespace: bidstream
+spec:
+  parentRefs:
+    - { kind: Service, group: "", name: pricing-service, port: 50063 }
+  rules:
+    - backendRefs:
+        - { name: pricing-service-v1, port: 50063, weight: 90 }
+        - { name: pricing-service-v2, port: 50063, weight: 10 }
