@@ -1,0 +1,54 @@
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+---
+# Stable name every caller uses; selects all tracks of the service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    {{- with $svc.waypoint }}
+    istio.io/use-waypoint: {{ . }}
+    {{- end }}
+spec:
+  selector: { app: {{ $name }} }
+  ports:
+    - name: {{ $svc.protocol }}
+      port: {{ $svc.port }}
+      appProtocol: {{ ternary "grpc" "http" (eq $svc.protocol "grpc") }}
+{{- if $svc.versions }}
+{{- range $version, $track := $svc.versions }}
+---
+# Per-track Service, used as a routing target for canary releases. Bound to the
+# waypoint too, so it keeps an Envoy cluster for every track: otherwise setting a
+# weight to 0 drops that cluster before the route update lands and in-flight
+# calls fail with NC (cluster_not_found).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-{{ $version }}
+  labels:
+    app: {{ $name }}
+    version: {{ $version }}
+    {{- with $svc.waypoint }}
+    istio.io/use-waypoint: {{ . }}
+    {{- end }}
+spec:
+  selector: { app: {{ $name }}, version: {{ $version }} }
+  ports:
+    - name: {{ $svc.protocol }}
+      port: {{ $svc.port }}
+      appProtocol: {{ ternary "grpc" "http" (eq $svc.protocol "grpc") }}
+---
+{{ include "bidstream.deployment" (dict "root" $ "name" $name "svc" $svc "version" $version "replicas" ($track.replicas | default $.Values.defaults.replicas) "extraEnv" $track.env) }}
+{{- end }}
+{{- else }}
+---
+{{ include "bidstream.deployment" (dict "root" $ "name" $name "svc" $svc "version" "" "replicas" ($svc.replicas | default $.Values.defaults.replicas) "extraEnv" dict) }}
+{{- end }}
+{{- end }}
