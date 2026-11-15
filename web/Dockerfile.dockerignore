@@ -1,0 +1,8 @@
+# BuildKit uses this file (next to web/Dockerfile) instead of a root .dockerignore.
+# Context is the repo root; only web/ is needed.
+**
+!web/
+web/node_modules
+web/dist
+web/.env
+web/.env.*
