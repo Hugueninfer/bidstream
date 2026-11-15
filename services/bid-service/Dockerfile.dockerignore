@@ -1,0 +1,10 @@
+# Used by BuildKit for builds with -f services/bid-service/Dockerfile (context = repo root).
+**/node_modules
+**/dist
+**/.git
+**/coverage
+**/*.log
+**/.env
+**/__pycache__
+**/.venv
+web
