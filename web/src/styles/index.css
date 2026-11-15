@@ -1,0 +1,103 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* BidStream design tokens (RGB channels so Tailwind opacity modifiers work). */
+:root {
+  --bs-bg: 247 247 248;            /* #F7F7F8 */
+  --bs-surface: 255 255 255;       /* #FFFFFF */
+  --bs-surface-2: 244 244 245;     /* #F4F4F5 */
+  --bs-border: 228 228 231;        /* #E4E4E7 */
+  --bs-border-strong: 212 212 216; /* #D4D4D8 */
+  --bs-text: 24 24 27;             /* #18181B */
+  --bs-text-2: 82 82 91;           /* #52525B */
+  --bs-text-3: 107 107 116;        /* #6B6B74 */
+  --bs-accent: 79 70 229;          /* #4F46E5 */
+  --bs-accent-text: 67 56 202;     /* #4338CA */
+  --bs-accent-soft: 238 242 255;   /* #EEF2FF */
+  --bs-good: 22 163 74;            /* #16A34A */
+  --bs-good-soft: 236 253 243;     /* #ECFDF3 */
+  --bs-warn: 217 119 6;            /* #D97706 */
+  --bs-warn-soft: 254 247 224;     /* #FEF7E0 */
+  --bs-bad: 220 38 38;             /* #DC2626 */
+  --bs-bad-soft: 254 242 242;      /* #FEF2F2 */
+  color-scheme: light;
+}
+
+.dark {
+  --bs-bg: 11 11 13;               /* #0B0B0D */
+  --bs-surface: 19 19 22;          /* #131316 */
+  --bs-surface-2: 27 27 32;        /* #1B1B20 */
+  --bs-border: 38 38 44;           /* #26262C */
+  --bs-border-strong: 58 58 66;    /* #3A3A42 */
+  --bs-text: 237 237 239;          /* #EDEDEF */
+  --bs-text-2: 180 180 188;        /* #B4B4BC */
+  --bs-text-3: 142 142 152;        /* #8E8E98 */
+  --bs-accent: 79 70 229;          /* #4F46E5 */
+  --bs-accent-text: 165 180 252;   /* #A5B4FC */
+  --bs-accent-soft: 30 28 63;      /* #1E1C3F */
+  --bs-good: 34 197 94;            /* #22C55E */
+  --bs-good-soft: 15 42 27;        /* #0F2A1B */
+  --bs-warn: 245 158 11;           /* #F59E0B */
+  --bs-warn-soft: 43 34 16;        /* #2B2210 */
+  --bs-bad: 239 68 68;             /* #EF4444 */
+  --bs-bad-soft: 46 21 21;         /* #2E1515 */
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-bg font-sans text-body text-text antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--bs-accent));
+    outline-offset: 2px;
+  }
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  .bs-card {
+    @apply rounded-xl border bg-surface;
+  }
+  .bs-input {
+    @apply h-10 w-full rounded-md border border-border-strong bg-surface px-3 text-body text-text placeholder:text-text-3 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-text-3;
+  }
+  .bs-input[aria-invalid="true"] {
+    @apply border-bad;
+  }
+  .bs-btn {
+    @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-body font-medium transition-colors disabled:cursor-not-allowed;
+  }
+  .bs-btn-primary {
+    @apply bs-btn bg-accent text-white hover:bg-accent/90 disabled:bg-surface-2 disabled:text-text-3;
+  }
+  .bs-btn-secondary {
+    @apply bs-btn border border-border-strong bg-surface text-text hover:bg-surface-2 disabled:text-text-3;
+  }
+  .bs-btn-sm {
+    @apply h-8 rounded-md px-3;
+  }
+  .bs-chip {
+    @apply inline-flex items-center rounded-sm bg-surface-2 px-1.5 py-0.5 font-mono text-mono text-text-2;
+  }
+  .bs-skeleton {
+    @apply rounded-md bg-surface-2 motion-safe:animate-pulse;
+  }
+}
