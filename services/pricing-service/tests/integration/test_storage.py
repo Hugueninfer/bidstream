@@ -53,9 +53,9 @@ async def test_estimate_cache_miss_then_hit(make_pool, redis):
     assert hit.estimate == miss.estimate
     assert 0.45 <= miss.estimate.estimated_unit_price <= 0.49
     assert miss.estimate.sample_size == 1_284
-    cached = json.loads(await redis.get("price:BOLT-M8:v0:40000"))
+    cached = json.loads(await redis.get("price:BOLT-M8:v1:v0:40000"))
     assert cached["estimated_unit_price"] == miss.estimate.estimated_unit_price
-    assert 0 < await redis.ttl("price:BOLT-M8:v0:40000") <= 600
+    assert 0 < await redis.ttl("price:BOLT-M8:v1:v0:40000") <= 600
 
 
 async def test_award_processed_twice_is_applied_once(make_pool, redis):

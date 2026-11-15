@@ -44,12 +44,13 @@ async def run(settings: Settings) -> None:
         await db.seed_if_empty(pool)
 
         repository = db.ObservationRepository(pool)
-        cache = PriceCache(redis)
+        cache = PriceCache(redis, settings.model_version)
         consumer = EventConsumer(settings.kafka_brokers, AwardHandler(repository, cache))
 
         server = grpc.aio.server(interceptors=tracing.grpc_server_interceptors())
         pricing_pb2_grpc.add_PricingServiceServicer_to_server(
-            PricingServicer(Estimator(repository, cache)), server
+            PricingServicer(Estimator(repository, cache, model_version=settings.model_version)),
+            server,
         )
         health_servicer = health.aio.HealthServicer()
         health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)

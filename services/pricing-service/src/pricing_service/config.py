@@ -15,6 +15,7 @@ class Settings:
     service_name: str
     otlp_endpoint: str | None
     log_level: str
+    model_version: str
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -28,4 +29,13 @@ class Settings:
             service_name=os.environ.get("OTEL_SERVICE_NAME", "pricing-service"),
             otlp_endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT") or None,
             log_level=os.environ.get("LOG_LEVEL", "info"),
+            model_version=_model_version(os.environ.get("MODEL_VERSION", "v1")),
         )
+
+
+def _model_version(value: str) -> str:
+    from .model import HALF_LIVES
+
+    if value not in HALF_LIVES:
+        raise ValueError(f"MODEL_VERSION must be one of {sorted(HALF_LIVES)}, got {value!r}")
+    return value

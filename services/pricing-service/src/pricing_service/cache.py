@@ -1,7 +1,10 @@
 """Redis estimate cache with per-SKU versioned keys.
 
     price:ver:{sku}                     INCR-ed counter (missing = 0)
-    price:{sku}:v{version}:{quantity}   cached estimate, TTL 10 min
+    price:{sku}:{model}:v{version}:{quantity}   cached estimate, TTL 10 min
+
+The model version is part of the key so a canary (v2) never serves v1's
+cached answers, and vice versa.
 
 Bumping the version orphans every cached quantity for the SKU at once; the old
 keys simply expire.
@@ -27,15 +30,16 @@ def version_key(sku: str) -> str:
     return f"price:ver:{sku}"
 
 
-def estimate_key(sku: str, version: int, quantity: int) -> str:
-    return f"price:{sku}:v{version}:{quantity}"
+def estimate_key(sku: str, version: int, quantity: int, model_version: str = "v1") -> str:
+    return f"price:{sku}:{model_version}:v{version}:{quantity}"
 
 
 class PriceCache:
     """Thin typed wrapper; Redis errors propagate so callers decide how to degrade."""
 
-    def __init__(self, redis: RedisLike) -> None:
+    def __init__(self, redis: RedisLike, model_version: str = "v1") -> None:
         self._redis = redis
+        self._model_version = model_version
 
     async def version(self, sku: str) -> int:
         raw = await self._redis.get(version_key(sku))
@@ -45,7 +49,7 @@ class PriceCache:
         return await self._redis.incr(version_key(sku))
 
     async def get_estimate(self, sku: str, version: int, quantity: int) -> PriceEstimate | None:
-        raw = await self._redis.get(estimate_key(sku, version, quantity))
+        raw = await self._redis.get(estimate_key(sku, version, quantity, self._model_version))
         if raw is None:
             return None
         return PriceEstimate(**json.loads(raw))
@@ -63,5 +67,7 @@ class PriceCache:
             }
         )
         await self._redis.set(
-            estimate_key(sku, version, quantity), payload, ex=ESTIMATE_TTL_SECONDS
+            estimate_key(sku, version, quantity, self._model_version),
+            payload,
+            ex=ESTIMATE_TTL_SECONDS,
         )

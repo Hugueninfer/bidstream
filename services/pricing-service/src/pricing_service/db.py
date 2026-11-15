@@ -93,13 +93,16 @@ class ObservationRepository:
     def __init__(self, pool: AsyncConnectionPool) -> None:
         self._pool = pool
 
-    async def load_observations(self, sku: str) -> list[tuple[float, float]]:
-        """All (quantity, unit_price) pairs for a SKU."""
+    async def load_observations(self, sku: str) -> list[tuple[float, float, float]]:
+        """All (quantity, unit_price, age_days) observations for a SKU."""
         async with self._pool.connection() as conn:
             cur = await conn.execute(
-                "SELECT quantity, unit_price FROM price_observations WHERE sku = %s", (sku,)
+                """SELECT quantity, unit_price,
+                          EXTRACT(EPOCH FROM now() - observed_at) / 86400
+                   FROM price_observations WHERE sku = %s""",
+                (sku,),
             )
-            return [(float(q), float(p)) for q, p in await cur.fetchall()]
+            return [(float(q), float(p), float(age)) for q, p, age in await cur.fetchall()]
 
     async def record_award(self, award: Award) -> bool:
         """Append an award to the history, once per event. False if already processed."""

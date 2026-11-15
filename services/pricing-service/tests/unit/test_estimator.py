@@ -40,7 +40,8 @@ def estimator(redis, observations, clock) -> Estimator:
 
 def test_key_format():
     assert version_key("BOLT-M8") == "price:ver:BOLT-M8"
-    assert estimate_key("BOLT-M8", 3, 40_000) == "price:BOLT-M8:v3:40000"
+    assert estimate_key("BOLT-M8", 3, 40_000) == "price:BOLT-M8:v1:v3:40000"
+    assert estimate_key("BOLT-M8", 3, 40_000, "v2") == "price:BOLT-M8:v2:v3:40000"
 
 
 async def test_missing_version_counts_as_zero(redis):
@@ -56,7 +57,7 @@ async def test_miss_then_hit(estimator, redis, observations):
     assert second.estimate == first.estimate
     assert first.estimate.estimated_unit_price == pytest.approx(0.47, abs=1e-4)
     assert observations.loads == 1
-    key = "price:BOLT-M8:v0:40000"
+    key = "price:BOLT-M8:v1:v0:40000"
     assert (
         json.loads(redis.data[key])["estimated_unit_price"] == first.estimate.estimated_unit_price
     )
@@ -79,7 +80,7 @@ async def test_version_bump_invalidates_cache_and_model(estimator, redis, observ
     assert result.cache_hit is False
     assert result.estimate.sample_size == 5
     assert observations.loads == 2
-    assert "price:BOLT-M8:v1:40000" in redis.data
+    assert "price:BOLT-M8:v1:v1:40000" in redis.data
 
 
 async def test_model_expires_even_without_a_version_bump(estimator, observations, clock):
@@ -108,9 +109,9 @@ async def test_redis_down_degrades_to_uncached(observations):
 
 
 async def test_corrupt_cache_entry_is_recomputed(estimator, redis):
-    redis.data["price:BOLT-M8:v0:40000"] = "{not json"
+    redis.data["price:BOLT-M8:v1:v0:40000"] = "{not json"
     result = await estimator.estimate("BOLT-M8", 40_000)
     assert result.cache_hit is False
     assert math.isclose(
-        json.loads(redis.data["price:BOLT-M8:v0:40000"])["low"], result.estimate.low
+        json.loads(redis.data["price:BOLT-M8:v1:v0:40000"])["low"], result.estimate.low
     )

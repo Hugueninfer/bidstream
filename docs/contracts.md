@@ -43,6 +43,7 @@ Every gRPC service also implements the standard `grpc.health.v1.Health` service.
 | `DATABASE_URL` | rfq, bid, pricing | `postgresql://bidstream:bidstream@postgres:5432/rfq` |
 | `KAFKA_BROKERS` | all | `redpanda:9092` |
 | `REDIS_URL` | pricing | `redis://redis:6379/0` |
+| `MODEL_VERSION` | pricing | `v1` (default) or `v2` |
 | `RFQ_SERVICE_ADDR` | gateway | `rfq-service:50061` |
 | `BID_SERVICE_ADDR` | gateway, rfq | `bid-service:50062` |
 | `PRICING_SERVICE_ADDR` | gateway | `pricing-service:50063` |
@@ -148,7 +149,10 @@ CREATE INDEX outbox_unpublished ON outbox (id) WHERE published_at IS NULL;
 - Model v1, per SKU: least squares on `log(unit_price) = a + b·log(quantity)`.
   Estimate = `exp(a + b·log(q))`; band = estimate × `exp(p10)` … `exp(p90)` of
   the residuals (the "80% range" the UI talks about).
-- Cache in Redis: key `price:{sku}:v{version}:{quantity}`, TTL 10 min, where
+- Model v2 (`MODEL_VERSION=v2`): the same regression, weighted by recency with a
+  365-day half-life so recent awards dominate when prices drift. It ships as a
+  canary next to v1 (see `deploy/`).
+- Cache in Redis: key `price:{sku}:{model_version}:v{version}:{quantity}`, TTL 10 min, where
   `version` = `INCR`-ed counter `price:ver:{sku}`. An `rfq.awarded` event adds an
   observation and bumps the version, which invalidates every cached quantity
   for that SKU at once.

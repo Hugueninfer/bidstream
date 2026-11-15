@@ -26,7 +26,7 @@ class SkuNotFound(LookupError):
 
 
 class ObservationSource(Protocol):
-    async def load_observations(self, sku: str) -> list[tuple[float, float]]: ...
+    async def load_observations(self, sku: str) -> list[tuple[float, ...]]: ...
 
 
 @dataclass(frozen=True)
@@ -48,8 +48,10 @@ class Estimator:
         observations: ObservationSource,
         cache: PriceCache,
         clock=time.monotonic,
+        model_version: str = "v1",
     ) -> None:
         self._observations = observations
+        self._model_version = model_version
         self._cache = cache
         self._clock = clock
         # One entry per SKU: only the current version is ever useful.
@@ -80,7 +82,7 @@ class Estimator:
                 return hit
             observations = await self._observations.load_observations(sku)
             try:
-                fitted = model.fit(observations)
+                fitted = model.fit(observations, self._model_version)
             except model.NotEnoughData:
                 raise SkuNotFound(sku) from None
             if version is not None:
@@ -90,6 +92,7 @@ class Estimator:
                 extra={
                     "sku": sku,
                     "version": version,
+                    "model_version": self._model_version,
                     "sample_size": fitted.sample_size,
                     "a": round(fitted.a, 6),
                     "b": round(fitted.b, 6),

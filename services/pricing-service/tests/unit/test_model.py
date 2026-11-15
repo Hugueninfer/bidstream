@@ -75,3 +75,25 @@ def test_predict_rejects_non_positive_quantity():
 )
 def test_quantile_interpolates_linearly(p, expected):
     assert model.quantile([1.0, 2.0, 3.0, 4.0, 5.0], p) == pytest.approx(expected)
+
+
+def test_v2_weights_recent_observations_more():
+    # Prices fell from 2.0 two years ago to 1.0 this month, at the same quantity.
+    history = [(100, 2.0, 730.0)] * 50 + [(100, 1.0, 10.0)] * 50
+    v1 = model.fit(history, "v1").predict(100)
+    v2 = model.fit(history, "v2").predict(100)
+    assert v1.model_version == "v1" and v2.model_version == "v2"
+    assert v1.estimated_unit_price == pytest.approx(math.sqrt(2.0), rel=1e-3)
+    assert v2.estimated_unit_price < v1.estimated_unit_price
+
+
+def test_v2_matches_v1_when_all_observations_have_the_same_age():
+    history = [(q, 5.0 * q**-0.1, 30.0) for q in (10, 100, 1_000, 10_000)]
+    v1 = model.fit(history, "v1")
+    v2 = model.fit(history, "v2")
+    assert v2.a == pytest.approx(v1.a) and v2.b == pytest.approx(v1.b)
+
+
+def test_unknown_model_version_is_rejected():
+    with pytest.raises(ValueError):
+        model.fit([(10, 1.0)], "v9")
