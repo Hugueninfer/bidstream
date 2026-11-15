@@ -1,4 +1,4 @@
-.PHONY: images up down infra logs e2e seed test k8s-up k8s-down k8s-e2e k8s-mesh-check k8s-canary
+.PHONY: images up down infra logs e2e seed test k8s-up k8s-down k8s-e2e k8s-mesh-check k8s-canary loadtest loadtest-steps
 
 # Builds use the host network: on some networks (e.g. phone hotspots with a
 # small MTU) Docker's default bridge can't reach npm/PyPI. Override with
@@ -54,3 +54,13 @@ k8s-mesh-check: ## Prove mTLS and authorization policies
 WEIGHT ?= 10
 k8s-canary: ## Send WEIGHT% of pricing traffic to model v2
 	scripts/k8s-canary.sh $(WEIGHT)
+
+# Load tests hit the kind node directly: Docker's userland proxy behind
+# localhost:9080 tops out at ~170 req/s and would be what gets measured.
+K8S_NODE_URL = http://$(shell docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' bidstream-control-plane 2>/dev/null):30080
+
+loadtest: ## k6 load test against the cluster (see docs/performance.md)
+	BASE_URL=$(K8S_NODE_URL) k6 run loadtest/bidstream.js
+
+loadtest-steps: ## Nominal, 2x, overload and recovery stages; summaries in OUT
+	BASE_URL=$(K8S_NODE_URL) loadtest/steps.sh $(or $(OUT),loadtest/results)
