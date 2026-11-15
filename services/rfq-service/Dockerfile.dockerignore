@@ -1,0 +1,6 @@
+# Build context is the repo root; only proto/ and this service are needed.
+**
+!proto/**
+!services/rfq-service/**
+**/__pycache__
+**/.pytest_cache
