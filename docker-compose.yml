@@ -1,5 +1,9 @@
 name: bidstream
 
+x-otel: &otel
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+  LOG_LEVEL: info
+
 services:
   # ---------- infrastructure ----------
   postgres:
@@ -63,6 +67,68 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.62.0
     ports: ["16686:16686"]
+
+  # ---------- application ----------
+  rfq-service:
+    image: bidstream/rfq-service:local
+    build: { context: ., dockerfile: services/rfq-service/Dockerfile }
+    environment:
+      <<: *otel
+      OTEL_SERVICE_NAME: rfq-service
+      GRPC_PORT: "50061"
+      DATABASE_URL: postgresql://bidstream:bidstream@postgres:5432/rfq
+      KAFKA_BROKERS: redpanda:9092
+      BID_SERVICE_ADDR: bid-service:50062
+    depends_on: &app-deps
+      postgres: { condition: service_healthy }
+      redpanda-init: { condition: service_completed_successfully }
+
+  bid-service:
+    image: bidstream/bid-service:local
+    build: { context: ., dockerfile: services/bid-service/Dockerfile }
+    environment:
+      <<: *otel
+      OTEL_SERVICE_NAME: bid-service
+      GRPC_PORT: "50062"
+      DATABASE_URL: postgresql://bidstream:bidstream@postgres:5432/bid
+      KAFKA_BROKERS: redpanda:9092
+    depends_on: *app-deps
+
+  pricing-service:
+    image: bidstream/pricing-service:local
+    build: { context: ., dockerfile: services/pricing-service/Dockerfile }
+    environment:
+      <<: *otel
+      OTEL_SERVICE_NAME: pricing-service
+      GRPC_PORT: "50063"
+      DATABASE_URL: postgresql://bidstream:bidstream@postgres:5432/pricing
+      KAFKA_BROKERS: redpanda:9092
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      <<: *app-deps
+      redis: { condition: service_healthy }
+
+  edge-gateway:
+    image: bidstream/edge-gateway:local
+    build: { context: ., dockerfile: services/edge-gateway/Dockerfile }
+    environment:
+      <<: *otel
+      OTEL_SERVICE_NAME: edge-gateway
+      HTTP_PORT: "8080"
+      KAFKA_BROKERS: redpanda:9092
+      RFQ_SERVICE_ADDR: rfq-service:50061
+      BID_SERVICE_ADDR: bid-service:50062
+      PRICING_SERVICE_ADDR: pricing-service:50063
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3080
+    ports: ["8000:8080"]
+    depends_on:
+      redpanda-init: { condition: service_completed_successfully }
+
+  web:
+    image: bidstream/web:local
+    build: { context: ., dockerfile: web/Dockerfile }
+    ports: ["3080:80"]
+    depends_on: [edge-gateway]
 
 volumes:
   pgdata:
