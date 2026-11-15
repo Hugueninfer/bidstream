@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package bidstream.bid.v1;
+
+// BidService owns supplier bids for RFQs.
+service BidService {
+  // INVALID_ARGUMENT on bad input, NOT_FOUND when the RFQ is unknown to this
+  // service (it may not have consumed rfq.created yet), FAILED_PRECONDITION
+  // when the RFQ is no longer open. Replaying the same idempotency_key returns
+  // the original bid.
+  rpc SubmitBid(SubmitBidRequest) returns (Bid);
+  // NOT_FOUND when the bid does not exist for the tenant.
+  rpc GetBid(GetBidRequest) returns (Bid);
+  rpc ListBids(ListBidsRequest) returns (ListBidsResponse);
+}
+
+message SubmitBidRequest {
+  string tenant_id = 1;
+  string rfq_id = 2;
+  string supplier_id = 3;
+  string supplier_name = 4;
+  double unit_price = 5;
+  int32 lead_time_days = 6;
+  string idempotency_key = 7;
+}
+
+message GetBidRequest {
+  string tenant_id = 1;
+  string bid_id = 2;
+}
+
+message ListBidsRequest {
+  string tenant_id = 1;
+  string rfq_id = 2;
+}
+
+message ListBidsResponse {
+  repeated Bid bids = 1;
+}
+
+message Bid {
+  string bid_id = 1;
+  string tenant_id = 2;
+  string rfq_id = 3;
+  string supplier_id = 4;
+  string supplier_name = 5;
+  double unit_price = 6;
+  string currency = 7;
+  int32 lead_time_days = 8;
+  // RFC 3339 timestamp.
+  string submitted_at = 9;
+}

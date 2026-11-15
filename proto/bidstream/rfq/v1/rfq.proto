@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package bidstream.rfq.v1;
+
+// RfqService owns requests for quote (RFQs) and their award.
+service RfqService {
+  // INVALID_ARGUMENT on bad input.
+  rpc CreateRfq(CreateRfqRequest) returns (Rfq);
+  // NOT_FOUND when the RFQ does not exist for the tenant.
+  rpc GetRfq(GetRfqRequest) returns (Rfq);
+  rpc ListRfqs(ListRfqsRequest) returns (ListRfqsResponse);
+  // NOT_FOUND (RFQ or bid unknown), FAILED_PRECONDITION (RFQ not open, or bid
+  // belongs to another RFQ). Awarding the same bid twice returns the RFQ.
+  rpc AwardRfq(AwardRfqRequest) returns (Rfq);
+}
+
+message CreateRfqRequest {
+  string tenant_id = 1;
+  string title = 2;
+  string sku = 3;
+  int64 quantity = 4;
+  string unit = 5;
+  // RFC 3339 timestamp, must be in the future.
+  string deadline = 6;
+}
+
+message GetRfqRequest {
+  string tenant_id = 1;
+  string rfq_id = 2;
+}
+
+message ListRfqsRequest {
+  string tenant_id = 1;
+  // "", "open", "awarded" or "expired".
+  string status = 2;
+}
+
+message ListRfqsResponse {
+  repeated Rfq rfqs = 1;
+}
+
+message AwardRfqRequest {
+  string tenant_id = 1;
+  string rfq_id = 2;
+  string bid_id = 3;
+}
+
+message Rfq {
+  string rfq_id = 1;
+  string tenant_id = 2;
+  string title = 3;
+  string sku = 4;
+  int64 quantity = 5;
+  string unit = 6;
+  string deadline = 7;
+  // "open", "awarded" or "expired" (open past its deadline).
+  string status = 8;
+  string created_at = 9;
+
+  // Read model fed by bid.events.
+  int32 bid_count = 10;
+  optional double best_bid_unit_price = 11;
+  optional string best_bid_supplier_name = 12;
+
+  // Set once awarded.
+  optional string awarded_bid_id = 13;
+  optional string awarded_supplier_name = 14;
+  optional double awarded_unit_price = 15;
+  optional string awarded_at = 16;
+}

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package bidstream.pricing.v1;
+
+// PricingService predicts a fair unit price for a SKU from historical awards.
+service PricingService {
+  // Returns NOT_FOUND when there is no history for the SKU.
+  rpc GetPriceEstimate(GetPriceEstimateRequest) returns (GetPriceEstimateResponse);
+}
+
+message GetPriceEstimateRequest {
+  string sku = 1;
+  int64 quantity = 2;
+}
+
+message GetPriceEstimateResponse {
+  string sku = 1;
+  int64 quantity = 2;
+  double estimated_unit_price = 3;
+  // Prediction band (roughly 80% of historical prices fall inside it).
+  double low = 4;
+  double high = 5;
+  int32 sample_size = 6;
+  bool cache_hit = 7;
+  string model_version = 8;
+}
