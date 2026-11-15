@@ -124,6 +124,20 @@ checks that Redis, `edge-gateway` and `pricing-service` (including the
 per-version Services the canary routes to) refuse it while legitimate traffic
 keeps flowing.
 
+## Performance
+
+SLOs are k6 thresholds in [`loadtest/bidstream.js`](loadtest/bidstream.js); the
+first rounds of load testing found a connection-pool leak that locked
+rfq-service up until it was restarted, a throughput ceiling that turned out to
+be Docker's port proxy, and tracing overhead that buried the host. The
+investigation and the before/after numbers are in
+[`docs/performance.md`](docs/performance.md).
+
+```bash
+make loadtest          # nominal load against the cluster
+make loadtest-steps    # nominal, 2x, overload, then recovery
+```
+
 ## Tests
 
 ```bash
@@ -132,7 +146,7 @@ make test        # unit tests for all services and the web app
 
 | Suite | Tests |
 |---|---|
-| rfq-service | 88 unit + 7 integration (Postgres: concurrent awards, consumer idempotency, migrations) |
+| rfq-service | 88 unit + 8 integration (Postgres: concurrent awards, consumer idempotency, migrations, pool under cancellation) |
 | pricing-service | 50 unit + 3 integration (seeding, cache hit/miss, award → version bump) |
 | bid-service | 55 unit + 18 integration (idempotency under 8 concurrent requests, read model, relay) |
 | edge-gateway | 103 (mapping, error codes, p95 window, SSE backlog + live, fake gRPC servers) |
@@ -158,8 +172,8 @@ scripts/          e2e test, demo seed, Kubernetes bring-up, canary and mesh chec
 - [x] Services, event bus, front end, tests — running locally with Docker Compose
 - [ ] CI (GitHub Actions): tests, multi-arch images to GHCR
 - [x] Kubernetes (Helm), service mesh (Istio ambient: mTLS, authz, canary)
-- [ ] Load testing with k6 + SLOs and a before/after performance report
-- [ ] Public deployment (k3s + Argo CD on a free-tier VM, front end on Vercel)
+- [x] Load testing with k6 + SLOs and a before/after performance report
+- [ ] Public deployment (k3s + Argo CD on a free-tier VM, front end on Vercel), with capacity measured there
 - [ ] MCP gateway for AI agents with tenant-scoped tools; AIOps triage agent with evals
 - [ ] Terraform for AWS (EKS, MSK, ElastiCache)
 
