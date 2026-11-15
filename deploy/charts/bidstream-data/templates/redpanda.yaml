@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: redpanda
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  labels: { app: redpanda }
+spec:
+  selector: { app: redpanda }
+  ports:
+    - name: tcp-kafka
+      port: 9092
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redpanda
+spec:
+  serviceName: redpanda
+  replicas: 1
+  selector:
+    matchLabels: { app: redpanda }
+  template:
+    metadata:
+      labels: { app: redpanda }
+    spec:
+      serviceAccountName: redpanda
+      containers:
+        - name: redpanda
+          image: {{ .Values.redpanda.image }}
+          args:
+            - redpanda
+            - start
+            - --mode=dev-container
+            - --smp=1
+            - --memory={{ .Values.redpanda.memory }}
+            - --kafka-addr=internal://0.0.0.0:9092
+            # Single broker: clients reach it through the Service name.
+            - --advertise-kafka-addr=internal://redpanda:9092
+          ports:
+            - containerPort: 9092
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "rpk cluster health | grep -q 'Healthy:.*true'"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+          resources: {{- toYaml .Values.redpanda.resources | nindent 12 }}
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/redpanda/data }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.redpanda.storage }}
+---
+# Creates the event topics and their dead-letter topics; safe to re-run.
+# In ambient mesh mode Jobs need no sidecar workaround to complete.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redpanda-topics
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels: { app: redpanda-topics }
+    spec:
+      serviceAccountName: redpanda
+      restartPolicy: OnFailure
+      containers:
+        - name: create-topics
+          image: {{ .Values.redpanda.image }}
+          command: ["/bin/bash", "-ec"]
+          args:
+            - |
+              # `rpk cluster health` needs the admin API (9644), which the Service
+              # doesn't expose; waiting on the Kafka API is enough here.
+              until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do sleep 2; done
+              {{- range .Values.redpanda.topics }}
+              rpk topic create {{ . }} -p {{ $.Values.redpanda.partitions }} -r 1 -X brokers=redpanda:9092 || true
+              rpk topic create {{ . }}.dlq -p 1 -r 1 -X brokers=redpanda:9092 || true
+              {{- end }}
+              rpk topic list -X brokers=redpanda:9092

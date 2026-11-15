@@ -1,0 +1,29 @@
+# Single-replica data stores sized for a laptop or a free-tier VM. In a real
+# environment these would be managed services (RDS, ElastiCache, MSK).
+
+postgres:
+  image: postgres:16-alpine
+  user: bidstream
+  # Demo credential; override with --set postgres.password=... or an external secret.
+  password: bidstream
+  databases: [rfq, bid, pricing]
+  storage: 1Gi
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+redis:
+  image: redis:7-alpine
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 128Mi }
+
+redpanda:
+  image: redpandadata/redpanda:v24.2.4
+  memory: 512M
+  storage: 2Gi
+  topics: [rfq.events, bid.events]
+  partitions: 3
+  resources:
+    requests: { cpu: 100m, memory: 640Mi }
+    limits: { memory: 1Gi }
