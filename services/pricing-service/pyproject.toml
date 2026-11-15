@@ -1,0 +1,26 @@
+[project]
+name = "pricing-service"
+version = "0.1.0"
+description = "BidStream pricing-service: fair-price estimates for RFQs"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "integration: needs real Postgres and Redis (run inside the bidstream_default network)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests/unit"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "ASYNC"]
+ignore = ["N818"]  # domain names (SkuNotFound, PoisonMessage) read better than *Error
+
+[tool.ruff.lint.isort]
+known-first-party = ["pricing_service"]
+known-third-party = ["bidstream"]
