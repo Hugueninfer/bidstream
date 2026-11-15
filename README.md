@@ -1,5 +1,7 @@
 # BidStream
 
+[![CI](https://github.com/hugueninfer/bidstream/actions/workflows/ci.yml/badge.svg)](https://github.com/hugueninfer/bidstream/actions/workflows/ci.yml)
+
 An event-driven procurement platform: buyers publish requests for quote (RFQs),
 suppliers bid in real time, a pricing model predicts what a fair price looks
 like, and the buyer awards the best bid.
@@ -117,9 +119,11 @@ scripts/          e2e test and demo seed
 - [ ] MCP gateway for AI agents with tenant-scoped tools; AIOps triage agent with evals
 - [ ] Terraform for AWS (EKS, MSK, ElastiCache)
 
-## Built with Claude Code
+## AI-assisted development
 
-This project was developed with Claude Code as the primary engineering tool:
-contracts and ADRs were written first, then services were built in parallel by
-separate agents against those contracts and integrated end to end. See
-[`CLAUDE.md`](CLAUDE.md) for the project rules the agents follow.
+This project was built with the assistance of AI tools (Claude / Claude Code).
+The workflow was contract-first: APIs, events and architecture decisions were
+written down before any code, services were then implemented against those
+contracts with AI assistance, and every piece was reviewed, integrated and
+verified end to end with the test suites above. The rules the AI tooling
+follows in this repo live in [`CLAUDE.md`](CLAUDE.md).
