@@ -1,0 +1,8 @@
+# Every pod in the namespace joins the ambient mesh: mTLS and L4 policy are
+# enforced by the per-node ztunnel, so no sidecars are injected.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bidstream
+  labels:
+    istio.io/dataplane-mode: ambient
