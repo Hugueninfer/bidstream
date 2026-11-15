@@ -1,4 +1,4 @@
-.PHONY: images up down infra logs e2e seed test
+.PHONY: images up down infra logs e2e seed test k8s-up k8s-down k8s-e2e k8s-mesh-check k8s-canary
 
 # Builds use the host network: on some networks (e.g. phone hotspots with a
 # small MTU) Docker's default bridge can't reach npm/PyPI. Override with
@@ -36,3 +36,21 @@ test: ## Unit tests for every service and the web app
 	$(MAKE) -C services/bid-service test
 	$(MAKE) -C services/edge-gateway test
 	cd web && npm test
+
+# ---------- Kubernetes (kind + Istio ambient) ----------
+
+k8s-up: images ## Local 3-node cluster with Istio and the whole app on :9080
+	scripts/k8s-up.sh
+
+k8s-down: ## Delete the local cluster
+	kind delete cluster --name bidstream
+
+k8s-e2e: ## End-to-end test through the Istio ingress
+	API=http://localhost:9080 scripts/e2e.sh
+
+k8s-mesh-check: ## Prove mTLS and authorization policies
+	scripts/k8s-mesh-check.sh
+
+WEIGHT ?= 10
+k8s-canary: ## Send WEIGHT% of pricing traffic to model v2
+	scripts/k8s-canary.sh $(WEIGHT)
