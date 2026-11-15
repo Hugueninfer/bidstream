@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [rfq-service, pricing-service]
+    steps:
+      - uses: actions/checkout@v4
+      # Tests run inside the service's Docker `test` stage, same as locally.
+      - run: make -C services/${{ matrix.service }} test BUILD_FLAGS=
+      - run: make -C services/${{ matrix.service }} lint BUILD_FLAGS=
+
+  node:
+    name: ${{ matrix.dir }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [services/bid-service, services/edge-gateway, web]
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint --if-present
+      - run: npm test
+
+  e2e:
+    name: end-to-end
+    needs: [python, node]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the stack
+        run: make up DOCKER_BUILD_FLAGS=
+      - name: Wait for the gateway
+        run: |
+          for _ in $(seq 60); do curl -fsS localhost:8000/readyz && exit 0; sleep 2; done
+          exit 1
+      - run: make e2e
+      - name: Service logs
+        if: failure()
+        run: docker compose logs --no-color --tail=200
