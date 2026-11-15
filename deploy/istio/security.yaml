@@ -1,0 +1,140 @@
+# Zero trust inside the namespace: mutual TLS is mandatory and every workload
+# only accepts the callers it actually needs. An ALLOW policy on a workload
+# implicitly denies everyone else. Identities are SPIFFE IDs derived from
+# Kubernetes service accounts.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: bidstream
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: web
+  namespace: bidstream
+spec:
+  selector: { matchLabels: { app: web } }
+  action: ALLOW
+  rules:
+    - from: [{ source: { principals: ["cluster.local/ns/bidstream/sa/bidstream-istio"] } }]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: edge-gateway
+  namespace: bidstream
+spec:
+  selector: { matchLabels: { app: edge-gateway } }
+  action: ALLOW
+  rules:
+    - from: [{ source: { principals: ["cluster.local/ns/bidstream/sa/bidstream-istio"] } }]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: rfq-service
+  namespace: bidstream
+spec:
+  selector: { matchLabels: { app: rfq-service } }
+  action: ALLOW
+  rules:
+    - from: [{ source: { principals: ["cluster.local/ns/bidstream/sa/edge-gateway"] } }]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: bid-service
+  namespace: bidstream
+spec:
+  selector: { matchLabels: { app: bid-service } }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/bidstream/sa/edge-gateway
+              - cluster.local/ns/bidstream/sa/rfq-service # award validation (GetBid)
+---
+# pricing-service is behind the waypoint, so its pods only ever see the
+# waypoint's identity; the real caller is checked at L7 by the policy below.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: pricing-service-pods
+  namespace: bidstream
+spec:
+  selector: { matchLabels: { app: pricing-service } }
+  action: ALLOW
+  rules:
+    - from: [{ source: { principals: ["cluster.local/ns/bidstream/sa/waypoint"] } }]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: pricing-service
+  namespace: bidstream
+spec:
+  # The per-track Services (canary routing targets) sit behind the waypoint too,
+  # and a policy only applies to the Services it targets: leave one out and it
+  # is an open side door to the pods.
+  targetRefs:
+    - { kind: Service, group: "", name: pricing-service }
+    - { kind: Service, group: "", name: pricing-service-v1 }
+    - { kind: Service, group: "", name: pricing-service-v2 }
+  action: ALLOW
+  rules:
+    - from: [{ source: { principals: ["cluster.local/ns/bidstream/sa/edge-gateway"] } }]
+      to:
+        - operation:
+            paths:
+              - /bidstream.pricing.v1.PricingService/GetPriceEstimate
+              - /grpc.health.v1.Health/Check
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: postgres
+  namespace: bidstream
+spec:
+  selector: { matchLabels: { app: postgres } }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/bidstream/sa/rfq-service
+              - cluster.local/ns/bidstream/sa/bid-service
+              - cluster.local/ns/bidstream/sa/pricing-service
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: redis
+  namespace: bidstream
+spec:
+  selector: { matchLabels: { app: redis } }
+  action: ALLOW
+  rules:
+    - from: [{ source: { principals: ["cluster.local/ns/bidstream/sa/pricing-service"] } }]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: redpanda
+  namespace: bidstream
+spec:
+  selector: { matchLabels: { app: redpanda } }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/bidstream/sa/rfq-service
+              - cluster.local/ns/bidstream/sa/bid-service
+              - cluster.local/ns/bidstream/sa/pricing-service
+              - cluster.local/ns/bidstream/sa/edge-gateway
+              - cluster.local/ns/bidstream/sa/redpanda # topic bootstrap job
