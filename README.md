@@ -81,6 +81,49 @@ docker compose stop pricing-service   # UI degrades, bids still flow
 docker compose start pricing-service
 ```
 
+## Run it on Kubernetes
+
+A local 3-node cluster ([kind](https://kind.sigs.k8s.io/)) with
+[Istio](https://istio.io/) in ambient mode (no sidecars), the app deployed with
+Helm and exposed through the Gateway API.
+
+Extra requirements: `kind`, `kubectl`, `helm`, `istioctl`. Three kind nodes plus
+Istio need more inotify instances than most distros allow by default:
+
+```bash
+sudo sysctl fs.inotify.max_user_instances=512 fs.inotify.max_user_watches=524288
+```
+
+```bash
+make k8s-up            # build images, create the cluster, install Istio and the app
+make k8s-e2e           # same end-to-end test, through the Istio ingress (:9080)
+make k8s-mesh-check    # prove mTLS and the authorization policies
+make k8s-down          # delete the cluster
+```
+
+What the mesh adds ([`deploy/istio/`](deploy/istio/)):
+
+- **mTLS everywhere** — every pod-to-pod connection is tunneled over HBONE by
+  ztunnel, with workload identities derived from service accounts.
+- **Zero-trust authorization** — every workload has an `ALLOW` policy listing
+  the callers it needs, so everyone else is denied (Redis only from
+  `pricing-service`, `edge-gateway` only from the ingress gateway).
+  `pricing-service` also has an L7 policy enforced by a waypoint proxy, down to
+  the gRPC method.
+- **Canary releases** — pricing model v2 runs as a second track next to v1 and a
+  weighted `GRPCRoute` splits traffic between them:
+
+  ```bash
+  make k8s-canary WEIGHT=10    # 10% of pricing calls to v2 (prints the observed split)
+  make k8s-canary WEIGHT=100   # promote
+  make k8s-canary WEIGHT=0     # roll back
+  ```
+
+`make k8s-mesh-check` shows each policy working: it starts an intruder pod and
+checks that Redis, `edge-gateway` and `pricing-service` (including the
+per-version Services the canary routes to) refuse it while legitimate traffic
+keeps flowing.
+
 ## Tests
 
 ```bash
@@ -105,15 +148,16 @@ proto/            gRPC contracts (versioned)
 services/         edge-gateway, rfq-service, bid-service, pricing-service
 web/              React front end (mock mode: `npm run dev:mock`)
 infra/            local bootstrap: databases, Kafka topics
+deploy/           Helm charts, Istio manifests, kind cluster config
 docs/             contracts and architecture decision records
-scripts/          e2e test and demo seed
+scripts/          e2e test, demo seed, Kubernetes bring-up, canary and mesh checks
 ```
 
 ## Roadmap
 
 - [x] Services, event bus, front end, tests — running locally with Docker Compose
 - [ ] CI (GitHub Actions): tests, multi-arch images to GHCR
-- [ ] Kubernetes (Helm), service mesh (Istio ambient: mTLS, authz, canary)
+- [x] Kubernetes (Helm), service mesh (Istio ambient: mTLS, authz, canary)
 - [ ] Load testing with k6 + SLOs and a before/after performance report
 - [ ] Public deployment (k3s + Argo CD on a free-tier VM, front end on Vercel)
 - [ ] MCP gateway for AI agents with tenant-scoped tools; AIOps triage agent with evals
